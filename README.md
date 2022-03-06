@@ -73,11 +73,11 @@ In case you don't know how to install packages, please refer to the following gu
 The user configurable paramters can be found on lines 20 to 24 of the spaceCryptoBot.py file.
 To configure it, just change the number according to your wishes.
 
->minShipsToStart:            int = 10 # Define the minimum amount of ships to start the fight<br>
->surrenderOnLevel:           int = 11 # Define the level which the script will surrender and start from level 1 again<br>
->reloadShipsEveryMinutes:    int = 5  # Reload ships every X minutes<br>
->refreshBrowserEveryMinutes: int = 30 # Refresh the screen every X minutes, this prevents the script to get stuck because of browser issues<br>
->saveLogFile:                bool = True # True/False - Save log file (useful in case debug is required)
+>minShipsToStart:            int = 10    # [1 to 15]     Define the minimum amount of ships to start the fight <br>
+>surrenderOnLevel:           int = 11    # [6,11,16]     Define the level which the script will surrender and start from level 1 again <br>
+>reloadShipsEveryMinutes:    int = 4     # [any value]   Reload ships every X minutes <br>
+>refreshBrowserEveryMinutes: int = 30    # [any value]   Refresh the screen every X minutes, this prevents the script to get stuck because of browser issues <br>
+>saveLogFile:                bool = True # [True/False]  Save log file (useful in case debug is required)
 
 
 # Tips
@@ -109,3 +109,7 @@ In case there are too many browsers opened, the script may not behave addequatel
 
 # Support and feature requests
 Please use the "issues" feature from GitHub in order to report bugs and get support from the script creator.
+
+# Change log
+V1.0 - Initial release.
+V1.1 - Cooldown time in case not enough ships are available.

@@ -20,11 +20,12 @@ from PIL import ImageGrab
 ### USER CONFIGURATION ###
 ##########################
 class userConfiguration:
-    minShipsToStart:            int = 10    # Define the minimum amount of ships to start the fight
-    surrenderOnLevel:           int = 11    # Define the level which the script will surrender and start from level 1 again
-    reloadShipsEveryMinutes:    int = 4     # Reload ships every X minutes
-    refreshBrowserEveryMinutes: int = 30    # Refresh the screen every X minutes, this prevents the script to get stuck because of browser issues
-    saveLogFile:                bool = True # [True/False] - Save log file (useful in case debug is required)
+    minShipsToStart:            int = 10    # [1 to 15]     Define the minimum amount of ships to start the fight
+    surrenderOnLevel:           int = 11    # [6,11,16]     Define the level which the script will surrender and start from level 1 again
+    reloadShipsEveryMinutes:    int = 4     # [any value]   Reload ships every X minutes
+    cooldownTime:               int = 10    # [any value]   Cooldown in X minutes in case not enough ships are available
+    refreshBrowserEveryMinutes: int = 30    # [any value]   Refresh screen time every X minutes. This prevents the script to get stuck because of browser issues
+    saveLogFile:                bool = True # [True/False]  Save log file (useful in case debug is required)
 # Creating instance
 userConfigurations = userConfiguration()
 
@@ -44,14 +45,14 @@ userConfigurations = userConfiguration()
 #######################################################################
 
 # Version
-VERSION = "1.0"
+VERSION = "1.1"
 
 # Debug levels
 class debugLevel: # This configuration changes what is printed on the console
-    critical:   bool = False     # A serious error, indicating that the program itself may be unable to continue running.
-    error:      bool = False     # Due to a more serious problem, the software has not been able to perform some function.
-    warning:    bool = False     # An indication that something unexpected happened, or indicative of some problem in the near future
-    info:       bool = True     # Confirmation that things are working as expected.
+    critical:   bool = True    # A serious error, indicating that the program itself may be unable to continue running.
+    error:      bool = True    # Due to a more serious problem, the software has not been able to perform some function.
+    warning:    bool = True    # An indication that something unexpected happened, or indicative of some problem in the near future
+    info:       bool = True    # Confirmation that things are working as expected.
     debug:      bool = False    # Detailed information, typically of interest only when diagnosing problems.   
 # Creating instance
 debugLevels = debugLevel()
@@ -62,6 +63,16 @@ class globalParameter:
    maximumNumberOfScrolls:  int = 10
 # Creating instance
 globalParameters = globalParameter()
+
+# Browser parameters
+class browserParameter:
+    handler:            list = []
+    selectedBrowser:    int = 0
+    lastReloadInterval: list = []
+    cooldownFlag:       list = []   
+    cooldownInterval:   list = []   
+# Creating instance
+browserParameters = browserParameter()
 
 # Configuration flags
 class stateMachineFlag:
@@ -79,7 +90,6 @@ stateMachineFlags = stateMachineFlag()
 
 # Timing parameters
 class timingParameter:
-    lastReloadShipsTime:    float = 0.0
     lastRefreshBrowserTime: float = 0.0
 # Creating instance
 timingParameters = timingParameter()
@@ -88,16 +98,17 @@ timingParameters = timingParameter()
 class sleepInterval:
     shortSleep:     int = 1
     mediumSleep:    int = 2
-    longSleep:      int = 7        
+    longSleep:      int = 5        
 # Creating instance
 sleepIntervals = sleepInterval()
 
 # Confidence of image search
 class confidenceValue:
-    low:    float = 0.65
-    medium: float = 0.80
-    high:   float = 0.95
-    ultra:  float = 0.99
+    low:        float = 0.65
+    medium:     float = 0.80
+    high:       float = 0.95
+    ultra:      float = 0.99
+    perfect:    float = 1.00
 # Creating instance    
 confidenceValues = confidenceValue()
 
@@ -112,8 +123,6 @@ def debugHandler(*arguments):
     global debugLevels
         
     # Get timestamp   
-    #t = time.localtime()
-    #current_time = time.strftime("%H:%M:%S", t)
     current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     # Get arguments
@@ -135,7 +144,6 @@ def debugHandler(*arguments):
             print(current_time,":",message) 
         elif items[0] == "DEBUG" and debugLevels.debug == True:
             print(current_time,":",message) 
-
     except:
         pass
     
@@ -153,8 +161,7 @@ def debugHandler(*arguments):
             elif items[0] == "INFO":
                 logging.info(message)
             elif items[0] == "DEBUG":
-                logging.debug(message)
-    
+                logging.debug(message)     
         except:
             pass 
             
@@ -162,11 +169,12 @@ def debugHandler(*arguments):
 # This function moves and resizes every Space Crypto window opened
 def preparingBrowsers():
     # Debug info
-    debugHandler("INFO","Function call: prepareBrowsers()")
+    debugHandler("INFO","Function call: preparingBrowsers()")
     
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
@@ -175,19 +183,22 @@ def preparingBrowsers():
     globalParameters.amountOfBrowsers = 0 
 
     try:    
-        while True:
-            browser = pygetwindow.getWindowsWithTitle('Space Crypto')[globalParameters.amountOfBrowsers]
-            globalParameters.amountOfBrowsers += 1
-            browser.moveTo(100,50)
-            browser.resizeTo(1000, 800)
-            time.sleep(sleepIntervals.mediumSleep)
-            
+        browserParameters.handler = pygetwindow.getWindowsWithTitle('Space Crypto')
+        globalParameters.amountOfBrowsers = len(browserParameters.handler)
+        browserParameters.lastReloadInterval = [0.0] * globalParameters.amountOfBrowsers # Create list filled with zeros (same size as browsers)
+        browserParameters.cooldownInterval = [0.0] * globalParameters.amountOfBrowsers # Create list filled with zeros (same size as browsers)
+        browserParameters.cooldownFlag = [False] * globalParameters.amountOfBrowsers # Create list filled with falses (same size as browsers)
+
+        debugHandler("INFO","Total number of browsers found: " + str(globalParameters.amountOfBrowsers))
+    
+        for selectedBrowser in range(0,globalParameters.amountOfBrowsers):
+             browserParameters.handler[selectedBrowser].moveTo(100,50)
+             browserParameters.handler[selectedBrowser].resizeTo(1000, 800)
+             browserParameters.lastReloadInterval[selectedBrowser] = time.time()
+             time.sleep(sleepIntervals.shortSleep)    
     except:
         if globalParameters.amountOfBrowsers == 0:
-            debugHandler("WARNING","No browser was found.")    
-        else:
-            debugHandler("INFO","Total number of browsers found: " + str(globalParameters.amountOfBrowsers))
-
+            debugHandler("ERROR","No browser was found.")    
 
 # runThroughBrowsersAndPlay()                      
 # This function go through all Firefox browsers and call playGame()
@@ -198,6 +209,7 @@ def runThroughBrowsersAndPlay():
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
@@ -206,20 +218,19 @@ def runThroughBrowsersAndPlay():
     # Prepare browsers
     if stateMachineFlags.prepareBrowsers == True:
         preparingBrowsers()
+        stateMachineFlags.prepareBrowsers = False
    
     # Run the script
     try:
-        for selectedBrowser in range(0,globalParameters.amountOfBrowsers):    
-            browser = pygetwindow.getWindowsWithTitle('Space Crypto')[selectedBrowser]
-            browser.moveTo(100,50) # Bring it to front
+        for selectedBrowser in range(0,globalParameters.amountOfBrowsers):
+            browserParameters.handler[selectedBrowser].moveTo(100,50) # Bring it to front  
+            browserParameters.selectedBrowser = selectedBrowser
             debugHandler("INFO","Starting routine on browser: " + str(selectedBrowser+1))
             playGameStateMachine()
             debugHandler("INFO","Finished routine routine on browser: " + str(selectedBrowser+1))
-
-            time.sleep(sleepIntervals.mediumSleep)
-            
+            time.sleep(sleepIntervals.mediumSleep)              
     except:
-        print("WARNING","runThroughBrowserAndPlay(): Error switching browsers. Was one of them closed?")          
+        debugHandler("WARNING","runThroughBrowserAndPlay(): Error switching browsers. Was one of them closed?")          
 
            
 # playGameStateMachine()
@@ -231,29 +242,40 @@ def playGameStateMachine():
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
     global confidenceValues
 
     # State machine 
+    if browserParameters.cooldownFlag[browserParameters.selectedBrowser] == True:
+        interval = time.time() - browserParameters.cooldownInterval[browserParameters.selectedBrowser]
+        debugHandler("INFO","This browser is under cooldown time to let ships recharge. Actual interval is: " + str(int(interval)) + "s")        
+         
+        if interval > userConfigurations.cooldownTime * 60:
+            browserParameters.cooldownInterval[browserParameters.selectedBrowser] = time.time()
+            browserParameters.cooldownFlag[browserParameters.selectedBrowser] = False                          
+        else:
+            return None
+    
     if stateMachineFlags.connect == True:
         connectingToGame()
                        
     if stateMachineFlags.loadShips == True:
         loadingShips()
-                    
+                          
     if stateMachineFlags.fightBoss == True:
         fightingBoss()
         
     if stateMachineFlags.reloadShips == True:
         reloadingShips()
-                       
-    if stateMachineFlags.surrender == True:
-        surrenderingOnDesiredLevel()
-        
+                             
     if stateMachineFlags.pressConfirm == True:
         pressingConfirm()
+        
+    if stateMachineFlags.surrender == True:
+        surrenderingOnDesiredLevel()
             
     if stateMachineFlags.checkError == True:
         checkingError()
@@ -263,11 +285,12 @@ def playGameStateMachine():
 # This function will click on connect, sign the metamask, play, and order by max ammo
 def connectingToGame():
     # Debug
-    debugHandler("INFO","Function call: connectToGame()")
+    debugHandler("INFO","Function call: connectingToGame()")
     
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
@@ -302,7 +325,7 @@ def connectingToGame():
             buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/loginSignMeta.png',confidence=confidenceValues.high)
             pyautogui.moveTo(buttonX, buttonY)
             pyautogui.click()
-            time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen
+            time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen 
         except:
             pass
 
@@ -316,7 +339,7 @@ def connectingToGame():
             pass       
 
     except:
-        debugHandler("WARNING","connectToGame(): Connect failed. Already connected?")
+        debugHandler("WARNING","connectingToGame(): Connect failed. Already connected?")
         time.sleep(sleepIntervals.shortSleep) # Waiting X seconds to update the screen
 
      
@@ -329,6 +352,7 @@ def orderingByMaxAmmo():
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
@@ -344,8 +368,7 @@ def orderingByMaxAmmo():
         buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/orderMaxAmmo.png',confidence=confidenceValues.high)
         pyautogui.moveTo(buttonX, buttonY)
         pyautogui.click()
-        time.sleep(sleepIntervals.mediumSleep) # Waiting X seconds to update the screen
-        
+        time.sleep(sleepIntervals.mediumSleep) # Waiting X seconds to update the screen  
     except:
         debugHandler("WARNING","orderByMaxAmmo(): Failed to order by Max Ammo. Already selected?")
         time.sleep(sleepIntervals.shortSleep) # Waiting X seconds to update the screen
@@ -355,11 +378,12 @@ def orderingByMaxAmmo():
 # This function will load the ships and check if minimum is availble to start the battle        
 def loadingShips():
     # Debug
-    debugHandler("INFO","Function call: loadShips()")
+    debugHandler("INFO","Function call: loadingShips()")
     
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
@@ -385,6 +409,7 @@ def loadingShips():
         scrollsLeft = globalParameters.maximumNumberOfScrolls
        
         while (shipsReady < 15) and (scrollsLeft > 0):
+            
             try: # Load the ships
             
                 if False: # Single searching, buggy because of game design and browser effects
@@ -422,31 +447,32 @@ def loadingShips():
                         
                         if shipsReady == lastShipsReady:
                             raise Exception("No ships found. Scrolling.")
-                        
             except: # No fight was found, scrolling
+            
                 try:
                     scrollsLeft -= 1
                     buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/iconCoin.png',confidence=confidenceValues.high)
                     pyautogui.moveTo(buttonX-100, buttonY+150)
-                    time.sleep(sleepIntervals.shortSleep)
                     pyautogui.dragTo(buttonX-100, buttonY-50, 1.2, button='left')                 
                     pyautogui.moveTo(buttonX-100, buttonY+150)
                     pyautogui.click()
                     time.sleep(sleepIntervals.shortSleep)# Waiting X seconds to update the screen
                 except: 
-                    debugHandler("ERROR","loadShips(): Failed to scroll.")
+                    debugHandler("ERROR","loadingShips(): Failed to scroll.")
     
         # Finished loading rountine. Checking...
         if shipsReady < userConfigurations.minShipsToStart:
-            debugHandler("INFO","loadShips(): Not enough Spaceships, removing them to re-charge.")
+            debugHandler("INFO","loadingShips(): Not enough Spaceships, removing them to re-charge.")
             stateMachineFlags.fightBoss = False
             unloadingShips()
+            # Cooldown time
+            browserParameters.cooldownFlag[browserParameters.selectedBrowser] = True
+            browserParameters.cooldownInterval[browserParameters.selectedBrowser] = time.time()
         else:
             debugHandler("INFO","Fighting enabled. Ships ready to battle: " + str(shipsReady))
             stateMachineFlags.fightBoss = True
-      
     except:
-        debugHandler("WARNING","Exception on loadShips(): Can't load the Spaceships. Already in battle?")        
+        debugHandler("WARNING","Exception on loadingShips(): Can't load the Spaceships. Already in battle?")        
         pass
       
       
@@ -454,11 +480,12 @@ def loadingShips():
 # This function will unload all ships already in battle
 def unloadingShips():
     # Debug
-    debugHandler("INFO","Function call: unloadShips()")
+    debugHandler("INFO","Function call: unloadingShips()")
     
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
@@ -471,7 +498,7 @@ def unloadingShips():
             pyautogui.click()
             time.sleep(sleepIntervals.shortSleep) # Waiting X seconds to update the screen
     except: 
-        debugHandler("WARNING","unloadShips(): No more spaceships to unload. Were all spaceships unloaded?")
+        debugHandler("WARNING","unloadingShips(): No more spaceships to unload. Were all spaceships unloaded?")
         time.sleep(sleepIntervals.mediumSleep) # Waiting X seconds to update the screen
         pass
 
@@ -480,11 +507,12 @@ def unloadingShips():
 # This function will begin the fight
 def fightingBoss():
     # Debug
-    debugHandler("INFO","Function call: fightBoss()")
+    debugHandler("INFO","Function call: fightingBoss()")
     
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
@@ -499,15 +527,15 @@ def fightingBoss():
         
         try:
             buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/confirmDefeat.png',confidence=confidenceValues.high)
-            pyautogui.moveTo(buttonX, buttonY)
-            pyautogui.click()
+            #pyautogui.moveTo(buttonX, buttonY)
+            pyautogui.click(buttonX, buttonY)  
         except:
             pass
             
         time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen              
         
     except:
-        debugHandler("WARNING","fightBoss(): Fight boss button not found. Already fighting?")
+        debugHandler("WARNING","fightingBoss(): Fight boss button not found. Already fighting?")
         pass
         
        
@@ -520,43 +548,47 @@ def reloadingShips():
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
     global confidenceValues
     
     # Check interval time to reload ships
-    interval = time.time() - timingParameters.lastReloadShipsTime
+    interval = time.time() - browserParameters.lastReloadInterval[browserParameters.selectedBrowser]
     if interval > userConfigurations.reloadShipsEveryMinutes*60:
+        
         try:
             debugHandler("INFO","Spaceships will be reloaded.")
+            buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/bossHp.png',confidence=confidenceValues.perfect) # avoid glitch in case boss is almost done
             buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/returnToSpaceship.png',confidence=confidenceValues.high)
             pyautogui.moveTo(buttonX, buttonY)
             pyautogui.click()
-            timingParameters.lastReloadShipsTime = time.time()
+            browserParameters.lastReloadInterval[browserParameters.selectedBrowser] = time.time()
             time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen   
-            stateMachineFlags.fightBoss = False
+            stateMachineFlags.fightBoss = False    
         except: 
-            pass         
+            debugHandler("WARNING","Failed to reload.")         
     else:
-        debugHandler("INFO","Actual reload ships interval is: " + str(int(interval)) + "s")
+        debugHandler("INFO","Actual reload ships interval from browser " + str(browserParameters.selectedBrowser + 1) + " is: " + str(int(interval)) + "s")
       
           
 # surrenderingOnDesiredLevel()
 # This function will surrender on the desired level, only available on level 11 now
 def surrenderingOnDesiredLevel():
     # Debug
-    debugHandler("INFO","Function call: surrenderOnLevel()")
+    debugHandler("INFO","Function call: surrenderingOnDesiredLevel()")
 
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
     global confidenceValues
     
-    try: # only surrendering on level 11 so far
+    try: # Surrender available on level 6, 11, or 16
         if userConfigurations.surrenderOnLevel == 6:
             buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/boss6.png',confidence=confidenceValues.high)
         elif userConfigurations.surrenderOnLevel == 11:
@@ -564,7 +596,7 @@ def surrenderingOnDesiredLevel():
         elif userConfigurations.surrenderOnLevel == 16:
             buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/boss16.png',confidence=confidenceValues.high)
         else:
-            debugHandler("WARNING","surrenderOnLevel(): Selected surrender-level is not available") 
+            debugHandler("WARNING","surrenderingOnDesiredLevel(): Selected surrender-level is not available") 
         
         buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/surrender.png',confidence=confidenceValues.high)
         pyautogui.moveTo(buttonX, buttonY)
@@ -576,14 +608,8 @@ def surrenderingOnDesiredLevel():
         pyautogui.click()
         time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen   
         
-        buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/returnToSpaceship.png',confidence=confidenceValues.high)
-        pyautogui.moveTo(buttonX, buttonY)
-        pyautogui.click()
-        time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen   
-        
-        stateMachineFlags.fightBoss = False
     except:
-        debugHandler("INFO","surrenderOnLevel(): Surrender level not yet reached.") 
+        debugHandler("INFO","surrenderingOnDesiredLevel(): Surrender level not yet reached.") 
         
         
 # pressingConfirm()
@@ -595,6 +621,7 @@ def pressingConfirm():
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
@@ -610,19 +637,27 @@ def pressingConfirm():
         buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/returnToSpaceship.png',confidence=confidenceValues.medium)
         pyautogui.moveTo(buttonX, buttonY)
         pyautogui.click()
-        time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen                
+        time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen              
     except:
         pass
         
     # Victory confirm
     try:
-        buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/confirmVictory.png',confidence=confidenceValues.high)
+        buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/confirmVictoryBig.png',confidence=confidenceValues.high)
         pyautogui.moveTo(buttonX, buttonY)
-        pyautogui.click()
+        pyautogui.doubleClick()
         time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen  
     except:
         pass
        
+    # Victory confirm
+    try:
+        buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/confirmVictorySmall.png',confidence=confidenceValues.high)
+        pyautogui.moveTo(buttonX, buttonY)
+        pyautogui.doubleClick()
+        time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen  
+    except:
+        pass
     
 # checkingError()
 # This function will reload the browser in case an error is detected
@@ -633,6 +668,7 @@ def checkingError():
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
@@ -688,6 +724,7 @@ def main():
     # Forcing python to use global values
     global userConfigurations
     global globalParameters
+    global browserParameters
     global timingParameters
     global sleepIntervals
     global stateMachineFlags
@@ -710,19 +747,14 @@ def main():
     debugHandler("INFO","Official script repository: https://github.com/LeoPersike/SpaceCryptoPythonBot")
     
     # Timing
-    timingParameters.lastReloadShipsTime = time.time()
     timingParameters.lastRefreshBrowserTime = time.time()
-    
-
-    
+        
     # Loop
     while True:
         
         runThroughBrowsersAndPlay()
         time.sleep(sleepIntervals.mediumSleep)
          
-    return 0
-
 # Guard #
 if __name__ == '__main__':
     main()

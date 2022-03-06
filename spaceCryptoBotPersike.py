@@ -51,7 +51,7 @@ VERSION = "1.1"
 class debugLevel: # This configuration changes what is printed on the console
     critical:   bool = True    # A serious error, indicating that the program itself may be unable to continue running.
     error:      bool = True    # Due to a more serious problem, the software has not been able to perform some function.
-    warning:    bool = True    # An indication that something unexpected happened, or indicative of some problem in the near future
+    warning:    bool = False    # An indication that something unexpected happened, or indicative of some problem in the near future
     info:       bool = True    # Confirmation that things are working as expected.
     debug:      bool = False    # Detailed information, typically of interest only when diagnosing problems.   
 # Creating instance

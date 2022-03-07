@@ -84,6 +84,7 @@ class stateMachineFlag:
     reloadShips:        bool = True
     checkError:         bool = True
     surrender:          bool = True
+    repair:             bool = False # not yet implemented
     refreshBrowser:     bool = True     
 # Creating instance
 stateMachineFlags = stateMachineFlag()
@@ -198,7 +199,7 @@ def preparingBrowsers():
              time.sleep(sleepIntervals.shortSleep)    
     except:
         if globalParameters.amountOfBrowsers == 0:
-            debugHandler("ERROR","No browser was found.")    
+            debugHandler("ERROR","Exception: No browser was found.")    
 
 # runThroughBrowsersAndPlay()                      
 # This function go through all Firefox browsers and call playGame()
@@ -230,7 +231,7 @@ def runThroughBrowsersAndPlay():
             debugHandler("INFO","Finished routine routine on browser: " + str(selectedBrowser+1))
             time.sleep(sleepIntervals.mediumSleep)              
     except:
-        debugHandler("WARNING","runThroughBrowserAndPlay(): Error switching browsers. Was one of them closed?")          
+        debugHandler("WARNING","Exception: runThroughBrowserAndPlay(): Error switching browsers. Was one of them closed?")          
 
            
 # playGameStateMachine()
@@ -251,11 +252,16 @@ def playGameStateMachine():
     # State machine 
     if browserParameters.cooldownFlag[browserParameters.selectedBrowser] == True:
         interval = time.time() - browserParameters.cooldownInterval[browserParameters.selectedBrowser]
-        debugHandler("INFO","This browser is under cooldown time to let ships recharge. Actual interval is: " + str(int(interval)) + "s")        
+        debugHandler("INFO","Cooldown: This browser is under cooldown time to let ships recharge. Actual interval is: " + str(int(interval)) + "s")        
          
         if interval > userConfigurations.cooldownTime * 60:
+            # Refresh screen
+            debugHandler("INFO","Cooldown: Cooldown time is over. Refreshing browser.")        
+            pyautogui.press("f5") 
+            time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen      
+            browserParameters.lastReloadInterval[browserParameters.selectedBrowser] = time.time()
             browserParameters.cooldownInterval[browserParameters.selectedBrowser] = time.time()
-            browserParameters.cooldownFlag[browserParameters.selectedBrowser] = False                          
+            browserParameters.cooldownFlag[browserParameters.selectedBrowser] = False              
         else:
             return None
     
@@ -276,7 +282,7 @@ def playGameStateMachine():
         
     if stateMachineFlags.surrender == True:
         surrenderingOnDesiredLevel()
-            
+    
     if stateMachineFlags.checkError == True:
         checkingError()
         
@@ -311,7 +317,7 @@ def connectingToGame():
                 os.system('clear')
 
         else:
-            debugHandler("INFO","Actual refresh browser interval is: " + str(int(interval)) + "s")
+            debugHandler("INFO","Timing: Actual refresh browser interval is: " + str(int(interval)) + "s")
         
         try:
             buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/loginConnectWallet.png',confidence=confidenceValues.high)
@@ -339,7 +345,7 @@ def connectingToGame():
             pass       
 
     except:
-        debugHandler("WARNING","connectingToGame(): Connect failed. Already connected?")
+        debugHandler("WARNING","Exception: connectingToGame(): Connect failed. Already connected?")
         time.sleep(sleepIntervals.shortSleep) # Waiting X seconds to update the screen
 
      
@@ -370,7 +376,7 @@ def orderingByMaxAmmo():
         pyautogui.click()
         time.sleep(sleepIntervals.mediumSleep) # Waiting X seconds to update the screen  
     except:
-        debugHandler("WARNING","orderByMaxAmmo(): Failed to order by Max Ammo. Already selected?")
+        debugHandler("WARNING","Exception: orderByMaxAmmo(): Failed to order by Max Ammo. Already selected?")
         time.sleep(sleepIntervals.shortSleep) # Waiting X seconds to update the screen
         
         
@@ -393,11 +399,20 @@ def loadingShips():
         # unloadingShips before trying to get them        
         unloadingShips()
 
-        # Go to base selection screen and back to spaceship (to order the ships and remove button bug from game design)
-        buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/menuBase.png',confidence=confidenceValues.high)
-        pyautogui.moveTo(buttonX, buttonY)
+        # Remove glare effect from button
+        buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/iconCoin.png',confidence=confidenceValues.high)
+        pyautogui.moveTo(buttonX-100, buttonY+150)
         pyautogui.click()
-        time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen
+        time.sleep(sleepIntervals.shortSleep) # Waiting X seconds to update the screen
+
+        try:
+            # Go to base selection screen and back to spaceship (to order the ships and remove button bug from game design)
+            buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/menuBase.png',confidence=confidenceValues.high)
+            pyautogui.moveTo(buttonX, buttonY)
+            pyautogui.click()
+            time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen
+        except: 
+            debugHandler("ERROR","Exception: loadingShips(): Can't find base button.")
 
         buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/menuSpaceship.png',confidence=confidenceValues.high)
         pyautogui.moveTo(buttonX, buttonY)
@@ -458,7 +473,7 @@ def loadingShips():
                     pyautogui.click()
                     time.sleep(sleepIntervals.shortSleep)# Waiting X seconds to update the screen
                 except: 
-                    debugHandler("ERROR","loadingShips(): Failed to scroll.")
+                    debugHandler("ERROR","Exception: loadingShips(): Failed to scroll.")
     
         # Finished loading rountine. Checking...
         if shipsReady < userConfigurations.minShipsToStart:
@@ -472,7 +487,7 @@ def loadingShips():
             debugHandler("INFO","Fighting enabled. Ships ready to battle: " + str(shipsReady))
             stateMachineFlags.fightBoss = True
     except:
-        debugHandler("WARNING","Exception on loadingShips(): Can't load the Spaceships. Already in battle?")        
+        debugHandler("WARNING","Exception: loadingShips(): Can't load the Spaceships. Already in battle?")        
         pass
       
       
@@ -498,7 +513,7 @@ def unloadingShips():
             pyautogui.click()
             time.sleep(sleepIntervals.shortSleep) # Waiting X seconds to update the screen
     except: 
-        debugHandler("WARNING","unloadingShips(): No more spaceships to unload. Were all spaceships unloaded?")
+        debugHandler("WARNING","Exception: unloadingShips(): No more spaceships to unload. Were all spaceships unloaded?")
         time.sleep(sleepIntervals.mediumSleep) # Waiting X seconds to update the screen
         pass
 
@@ -535,7 +550,7 @@ def fightingBoss():
         time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen              
         
     except:
-        debugHandler("WARNING","fightingBoss(): Fight boss button not found. Already fighting?")
+        debugHandler("WARNING","Exception: fightingBoss(): Fight boss button not found. Already fighting?")
         pass
         
        
@@ -556,21 +571,22 @@ def reloadingShips():
     
     # Check interval time to reload ships
     interval = time.time() - browserParameters.lastReloadInterval[browserParameters.selectedBrowser]
-    if interval > userConfigurations.reloadShipsEveryMinutes*60:
+    debugHandler("INFO","Timing: Actual reload ships interval from browser " + str(browserParameters.selectedBrowser + 1) + " is: " + str(int(interval)) + "s")
         
+    if interval >= (userConfigurations.reloadShipsEveryMinutes * 60):        
         try:
-            debugHandler("INFO","Spaceships will be reloaded.")
-            buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/bossHp.png',confidence=confidenceValues.perfect) # avoid glitch in case boss is almost done
+            buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/bossHp.png',confidence=confidenceValues.high) # avoid glitch in case boss is almost done
             buttonX, buttonY = pyautogui.locateCenterOnScreen('./assets/returnToSpaceship.png',confidence=confidenceValues.high)
             pyautogui.moveTo(buttonX, buttonY)
             pyautogui.click()
+            debugHandler("INFO","Spaceships will be reloaded.")
+
             browserParameters.lastReloadInterval[browserParameters.selectedBrowser] = time.time()
             time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen   
             stateMachineFlags.fightBoss = False    
         except: 
-            debugHandler("WARNING","Failed to reload.")         
-    else:
-        debugHandler("INFO","Actual reload ships interval from browser " + str(browserParameters.selectedBrowser + 1) + " is: " + str(int(interval)) + "s")
+            debugHandler("WARNING","Exception: Failed to reload.")         
+    
       
           
 # surrenderingOnDesiredLevel()
@@ -609,7 +625,7 @@ def surrenderingOnDesiredLevel():
         time.sleep(sleepIntervals.longSleep) # Waiting X seconds to update the screen   
         
     except:
-        debugHandler("INFO","surrenderingOnDesiredLevel(): Surrender level not yet reached.") 
+        debugHandler("INFO","Exception: surrenderingOnDesiredLevel(): Surrender level not yet reached.") 
         
         
 # pressingConfirm()
